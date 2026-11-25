@@ -330,6 +330,8 @@ class BrankasViewModel(
             val pendingMediaDeleteUris = mutableListOf<Uri>()
             var importedCount = 0
             var deletedCount = 0
+            var pendingDeleteCount = 0
+            var sourceDeleteFailedCount = 0
 
             uris.forEachIndexed { index, uri ->
                 _localState.update {
@@ -349,6 +351,9 @@ class BrankasViewModel(
                         deletedCount++
                     } else if (outcome.pendingMediaDeleteUri != null) {
                         pendingMediaDeleteUris.add(outcome.pendingMediaDeleteUri)
+                        pendingDeleteCount++
+                    } else if (deleteOriginal) {
+                        sourceDeleteFailedCount++
                     }
                 }
             }
@@ -362,9 +367,11 @@ class BrankasViewModel(
             val msg = when {
                 importedCount == 0 -> "Gagal mengimpor file yang dipilih"
                 deleteOriginal && deletedCount == importedCount ->
-                    "$importedCount file dipindahkan & dienkripsi ke brankas"
-                deleteOriginal && pendingMediaDeleteUris.isNotEmpty() ->
-                    "$importedCount file terenkripsi. Konfirmasi hapus file asli dari galeri."
+                    "$importedCount file berhasil dipindahkan ke brankas; file asli dihapus"
+                deleteOriginal && pendingDeleteCount > 0 && sourceDeleteFailedCount == 0 ->
+                    "$importedCount file terenkripsi di brankas. Konfirmasi sistem diperlukan untuk menghapus $pendingDeleteCount file asli."
+                deleteOriginal && sourceDeleteFailedCount > 0 ->
+                    "$importedCount file aman di brankas, tetapi $sourceDeleteFailedCount file asli gagal dihapus. Periksa Galeri."
                 else ->
                     "$importedCount file berhasil dienkripsi (AES-256) ke brankas"
             }
