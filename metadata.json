@@ -1,0 +1,6 @@
+{
+  "name": "BrankasKu",
+  "description": "Aplikasi pengunci folder dan file aman dengan enkripsi AES-256-GCM, perlindungan sidik jari, penyimpanan internal tersembunyi, dan album kustom.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
