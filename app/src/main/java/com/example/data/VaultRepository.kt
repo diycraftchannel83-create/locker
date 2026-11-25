@@ -148,8 +148,15 @@ class VaultRepository(
         deleteOriginal: Boolean
     ): ImportedFileOutcome {
         val outcome = storageManager.importUri(uri, albumId, deleteOriginal)
+        // Commit metadata first: never delete the original if the vault record fails.
         dao.insertFile(outcome.entity)
-        return outcome
+        if (!deleteOriginal) return outcome
+
+        val deletedDirectly = storageManager.deleteOriginalAfterImport(uri)
+        return outcome.copy(
+            originalDeletedDirectly = deletedDirectly,
+            pendingMediaDeleteUri = if (deletedDirectly) null else outcome.pendingMediaDeleteUri
+        )
     }
 
     suspend fun moveFilesToAlbum(fileIds: List<String>, targetAlbumId: String) {
