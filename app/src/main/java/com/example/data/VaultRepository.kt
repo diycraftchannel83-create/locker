@@ -149,7 +149,13 @@ class VaultRepository(
     ): ImportedFileOutcome {
         val outcome = storageManager.importUri(uri, albumId, deleteOriginal)
         // Commit metadata first: never delete the original if the vault record fails.
-        dao.insertFile(outcome.entity)
+        try {
+            dao.insertFile(outcome.entity)
+        } catch (error: Throwable) {
+            // Remove the encrypted blob/thumbnail if the metadata commit failed.
+            storageManager.deleteEncryptedAssets(outcome.entity)
+            throw error
+        }
         if (!deleteOriginal) return outcome
 
         val deletedDirectly = storageManager.deleteOriginalAfterImport(uri)
