@@ -22,6 +22,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
@@ -66,6 +67,7 @@ class MainActivity : FragmentActivity() {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val snackbarHostState = remember { SnackbarHostState() }
             val lifecycleOwner = LocalLifecycleOwner.current
+            val pendingDeleteUris = remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
 
             // Enforce FLAG_SECURE when locked or when screenshot blocking is enabled
             val shouldBlockScreenshots = uiState.isLocked || uiState.securityPrefs.blockScreenshots
@@ -99,8 +101,25 @@ class MainActivity : FragmentActivity() {
                 contract = ActivityResultContracts.StartIntentSenderForResult()
             ) { result ->
                 viewModel.clearExternalPickerFlag()
+                val targets = pendingDeleteUris.value
+                pendingDeleteUris.value = emptyList()
                 if (result.resultCode == RESULT_OK) {
-                    viewModel.emitMessage("Persetujuan diberikan: file asli dihapus dari Galeri. File terenkripsi tetap tersimpan di brankas internal.")
+                    // Consent is not proof of deletion. Verify each URI by querying MediaStore.
+                    val verifiedDeleted = targets.count { uri ->
+                        runCatching {
+                            contentResolver.query(uri, arrayOf("_id"), null, null, null)?.use { cursor ->
+                                !cursor.moveToFirst()
+                            } ?: false
+                        }.getOrDefault(false)
+                    }
+                    val remainingOrUnknown = targets.size - verifiedDeleted
+                    val message = when {
+                        targets.isEmpty() -> "Permintaan penghapusan selesai, tetapi URI sumber tidak tersedia untuk verifikasi."
+                        remainingOrUnknown == 0 -> "Terverifikasi: $verifiedDeleted file asli sudah tidak ada di Galeri. File terenkripsi tetap tersimpan di brankas."
+                        verifiedDeleted == 0 -> "Persetujuan diterima, tetapi penghapusan $remainingOrUnknown file asli belum dapat diverifikasi. Periksa Galeri. File brankas tetap aman."
+                        else -> "Terverifikasi $verifiedDeleted file asli terhapus; $remainingOrUnknown file masih ada atau belum dapat diverifikasi. Periksa Galeri."
+                    }
+                    viewModel.emitMessage(message)
                 } else {
                     viewModel.emitMessage("Penghapusan file asli dibatalkan. File terenkripsi sudah aman di brankas, tetapi salinan asli masih berada di Galeri.")
                 }
@@ -115,6 +134,7 @@ class MainActivity : FragmentActivity() {
                         is VaultEvent.RequestMediaStoreDelete -> {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && event.uris.isNotEmpty()) {
                                 runCatching {
+                                    pendingDeleteUris.value = event.uris
                                     viewModel.markLaunchingExternalPicker()
                                     val pendingIntent = MediaStore.createDeleteRequest(
                                         contentResolver,
@@ -124,7 +144,9 @@ class MainActivity : FragmentActivity() {
                                         IntentSenderRequest.Builder(pendingIntent.intentSender).build()
                                     )
                                 }.onFailure {
+                                    pendingDeleteUris.value = emptyList()
                                     viewModel.clearExternalPickerFlag()
+                                    viewModel.emitMessage("Gagal meminta izin penghapusan file asli. File tetap tersimpan di brankas dan sumber masih ada.")
                                 }
                             }
                         }
