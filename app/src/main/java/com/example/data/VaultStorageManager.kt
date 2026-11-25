@@ -21,8 +21,9 @@ import java.util.UUID
 
 data class ImportedFileOutcome(
     val entity: VaultFileEntity,
-    val originalDeletedDirectly: Boolean,
-    val pendingMediaDeleteUri: Uri?
+    val sourceUri: Uri,
+    val originalDeletedDirectly: Boolean = false,
+    val pendingMediaDeleteUri: Uri? = null
 )
 
 class VaultStorageManager(
@@ -98,25 +99,34 @@ class VaultStorageManager(
             createdAt = System.currentTimeMillis()
         )
 
-        var deletedDirectly = false
-        var pendingMediaUri: Uri? = null
-
-        if (deleteOriginal) {
-            if (DocumentsContract.isDocumentUri(context, uri)) {
-                deletedDirectly = runCatching {
-                    DocumentsContract.deleteDocument(resolver, uri)
-                }.getOrDefault(false)
-            }
-            if (!deletedDirectly && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                pendingMediaUri = resolveMediaStoreUri(uri)
-            }
-        }
-
+        // Source deletion is intentionally deferred until the repository commits
+        // the vault metadata. This prevents losing the original if DB insertion fails.
         ImportedFileOutcome(
             entity = entity,
-            originalDeletedDirectly = deletedDirectly,
-            pendingMediaDeleteUri = pendingMediaUri
+            sourceUri = uri,
+            originalDeletedDirectly = false,
+            pendingMediaDeleteUri = if (deleteOriginal && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                && !DocumentsContract.isDocumentUri(context, uri)) resolveMediaStoreUri(uri) else null
         )
+    }
+
+    /**
+     * Delete the source only after encrypted data and its Room metadata are committed.
+     * On Android 11+ MediaStore deletion requires a user-approved system request,
+     * so this method deliberately returns false for those media items.
+     */
+    fun deleteOriginalAfterImport(uri: Uri): Boolean {
+        val resolver = context.contentResolver
+        return runCatching {
+            when {
+                DocumentsContract.isDocumentUri(context, uri) ->
+                    DocumentsContract.deleteDocument(resolver, uri)
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.R &&
+                    uri.authority == MediaStore.AUTHORITY ->
+                    resolver.delete(uri, null, null) > 0
+                else -> false
+            }
+        }.getOrDefault(false)
     }
 
     private fun resolveMediaStoreUri(uri: Uri): Uri? {
