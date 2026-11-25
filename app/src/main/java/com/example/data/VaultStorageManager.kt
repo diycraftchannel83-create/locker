@@ -69,45 +69,52 @@ class VaultStorageManager(
         val encryptedBlobName = "$fileId.vlt"
         val destBlobFile = File(blobsDir, encryptedBlobName)
 
-        val actualPlainSize = resolver.openInputStream(uri)?.buffered()?.use { input ->
-            cryptoEngine.encryptToFile(input, destBlobFile)
-        } ?: throw IllegalStateException("Tidak dapat membaca file sumber")
-
-        val finalSize = if (actualPlainSize > 0) actualPlainSize else queriedSize.coerceAtLeast(0L)
-
         var encryptedThumbName: String? = null
-        if (category == MediaCategory.IMAGE || category == MediaCategory.VIDEO) {
-            val thumbBytes = createThumbnailJpeg(uri, category)
-            if (thumbBytes != null && thumbBytes.isNotEmpty()) {
-                val thumbName = "$fileId.thm"
-                val thumbFile = File(thumbsDir, thumbName)
-                thumbFile.writeBytes(cryptoEngine.encryptBytes(thumbBytes))
-                encryptedThumbName = thumbName
+        try {
+            val actualPlainSize = resolver.openInputStream(uri)?.buffered()?.use { input ->
+                cryptoEngine.encryptToFile(input, destBlobFile)
+            } ?: throw IllegalStateException("Tidak dapat membaca file sumber")
+
+            val finalSize = if (actualPlainSize > 0) actualPlainSize else queriedSize.coerceAtLeast(0L)
+
+            if (category == MediaCategory.IMAGE || category == MediaCategory.VIDEO) {
+                val thumbBytes = createThumbnailJpeg(uri, category)
+                if (thumbBytes != null && thumbBytes.isNotEmpty()) {
+                    val thumbName = "$fileId.thm"
+                    val thumbFile = File(thumbsDir, thumbName)
+                    thumbFile.writeBytes(cryptoEngine.encryptBytes(thumbBytes))
+                    encryptedThumbName = thumbName
+                    thumbBytes.fill(0)
+                }
             }
+
+            val entity = VaultFileEntity(
+                id = fileId,
+                albumId = albumId,
+                originalName = displayName,
+                mimeType = mimeType,
+                category = category,
+                originalSizeBytes = finalSize,
+                encryptedFileName = encryptedBlobName,
+                encryptedThumbName = encryptedThumbName,
+                encryptionAlgorithm = "AES-256-GCM",
+                createdAt = System.currentTimeMillis()
+            )
+
+            // Source deletion is intentionally deferred until the repository commits
+            // the vault metadata. This prevents losing the original if DB insertion fails.
+            ImportedFileOutcome(
+                entity = entity,
+                sourceUri = uri,
+                originalDeletedDirectly = false,
+                pendingMediaDeleteUri = if (deleteOriginal && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                    && !DocumentsContract.isDocumentUri(context, uri)) resolveMediaStoreUri(uri) else null
+            )
+        } catch (error: Throwable) {
+            secureDeleteFile(destBlobFile)
+            encryptedThumbName?.let { secureDeleteFile(File(thumbsDir, it)) }
+            throw error
         }
-
-        val entity = VaultFileEntity(
-            id = fileId,
-            albumId = albumId,
-            originalName = displayName,
-            mimeType = mimeType,
-            category = category,
-            originalSizeBytes = finalSize,
-            encryptedFileName = encryptedBlobName,
-            encryptedThumbName = encryptedThumbName,
-            encryptionAlgorithm = "AES-256-GCM",
-            createdAt = System.currentTimeMillis()
-        )
-
-        // Source deletion is intentionally deferred until the repository commits
-        // the vault metadata. This prevents losing the original if DB insertion fails.
-        ImportedFileOutcome(
-            entity = entity,
-            sourceUri = uri,
-            originalDeletedDirectly = false,
-            pendingMediaDeleteUri = if (deleteOriginal && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-                && !DocumentsContract.isDocumentUri(context, uri)) resolveMediaStoreUri(uri) else null
-        )
     }
 
     /**
