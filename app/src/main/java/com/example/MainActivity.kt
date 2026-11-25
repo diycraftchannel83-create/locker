@@ -100,7 +100,9 @@ class MainActivity : FragmentActivity() {
             ) { result ->
                 viewModel.clearExternalPickerFlag()
                 if (result.resultCode == RESULT_OK) {
-                    viewModel.emitMessage("File asli berhasil dihapus dari galeri")
+                    viewModel.emitMessage("Persetujuan diberikan: file asli dihapus dari Galeri. File terenkripsi tetap tersimpan di brankas internal.")
+                } else {
+                    viewModel.emitMessage("Penghapusan file asli dibatalkan. File terenkripsi sudah aman di brankas, tetapi salinan asli masih berada di Galeri.")
                 }
             }
 
