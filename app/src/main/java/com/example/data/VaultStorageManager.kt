@@ -156,11 +156,9 @@ class VaultStorageManager(
         val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
             ?: baseExt.takeIf { it.isNotBlank() && !it.matches(Regex("[0-9a-fA-F-]{20,}")) }
         val looksUuid = baseName.matches(Regex("[0-9a-fA-F-]{20,}"))
-        val displayName = if (looksUuid || baseName.isBlank()) {
-            "Recovered_$baseName" + (ext?.let { ".${it}" } ?: "")
-        } else if (baseName.substringAfterLast('.', "").isBlank() && ext != null) {
-            "$baseName.$ext"
-        } else baseName
+        val stableStem = if (looksUuid || baseName.isBlank()) baseName else baseName.substringBeforeLast('.', baseName)
+        val preservedExt = if (ext != null) ext else baseExt.takeIf { it.isNotBlank() && !looksUuid }
+        val displayName = "Recovered_" + stableStem + (preservedExt?.let { "." + it } ?: "")
         return RecoveredFileInfo(mime, displayName, MediaCategory.fromMimeType(mime, displayName))
     }
 
