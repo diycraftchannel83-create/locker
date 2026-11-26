@@ -106,6 +106,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val allFilesAccessLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.StartActivityForResult()
+            ) {
+                if (Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()) {
+                    viewModel.emitMessage("Akses semua file diberikan.")
+                } else {
+                    viewModel.emitMessage("Akses semua file belum diberikan. Fitur folder eksternal mungkin terbatas.")
+                }
+            }
+
+            fun requestAllFilesAccess() {
+                if (Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = android.net.Uri.parse("package:$packageName")
+                    }
+                    allFilesAccessLauncher.launch(intent)
+                }
+            }
+
             val mediaPermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestMultiplePermissions()
             ) { results ->
@@ -129,25 +148,6 @@ class MainActivity : ComponentActivity() {
                 )
                 Build.VERSION.SDK_INT >= 23 -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
                 else -> emptyArray()
-            }
-
-            val allFilesAccessLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.StartActivityForResult()
-            ) {
-                if (Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()) {
-                    viewModel.emitMessage("Akses semua file diberikan.")
-                } else {
-                    viewModel.emitMessage("Akses semua file belum diberikan. Fitur folder eksternal mungkin terbatas.")
-                }
-            }
-
-            fun requestAllFilesAccess() {
-                if (Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
-                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                        data = android.net.Uri.parse("package:$packageName")
-                    }
-                    allFilesAccessLauncher.launch(intent)
-                }
             }
 
             val mediaDeleteLauncher = rememberLauncherForActivityResult(
