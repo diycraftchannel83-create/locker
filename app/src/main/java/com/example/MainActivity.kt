@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(outerPadding)
                     ) {
-                        if (!locked && firstLaunchPermissionInfo.value) {
+                        if (!uiState.isLocked && firstLaunchPermissionInfo.value) {
                             AlertDialog(
                                 onDismissRequest = { firstLaunchPermissionInfo.value = false; getSharedPreferences("brankasku_first_run", MODE_PRIVATE).edit().putBoolean("permission_info_seen", true).apply() },
                                 title = { Text("Akses Folder & Penghapusan File") },
