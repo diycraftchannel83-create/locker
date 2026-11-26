@@ -43,7 +43,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.activity.compose.rememberLauncherForActivityResult\nimport androidx.activity.result.contract.ActivityResultContracts\nimport androidx.compose.runtime.Composable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,13 +75,20 @@ fun SettingsScreen(
     onBiometricToggle: (Boolean) -> Unit,
     onAutoLockToggle: (Boolean) -> Unit,
     onBlockScreenshotsToggle: (Boolean) -> Unit,
-    onDeleteOriginalToggle: (Boolean) -> Unit,\n    onExternalVaultFolderSelected: (String?) -> Unit,
+    onDeleteOriginalToggle: (Boolean) -> Unit,
+    onExternalVaultFolderSelected: (String?) -> Unit,
     onThemeChange: (VaultThemePreference) -> Unit,
     onChangePin: (currentPin: String, newPin: String, onResult: (Boolean) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     val activity = context as? FragmentActivity
-    var showChangePinDialog by remember { mutableStateOf(false) }\n    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { treeUri ->\n        if (treeUri != null) {\n            runCatching { context.contentResolver.takePersistableUriPermission(treeUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }\n            onExternalVaultFolderSelected(treeUri.toString())\n        }\n    }
+    var showChangePinDialog by remember { mutableStateOf(false) }
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { treeUri ->
+        if (treeUri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(treeUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+            onExternalVaultFolderSelected(treeUri.toString())
+        }
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
