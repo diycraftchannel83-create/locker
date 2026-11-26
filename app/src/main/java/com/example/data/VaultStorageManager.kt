@@ -61,8 +61,11 @@ class VaultStorageManager(
         deleteOriginal: Boolean
     ): ImportedFileOutcome = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
-        val (displayName, queriedSize) = queryDisplayNameAndSize(uri)
-        val mimeType = resolver.getType(uri) ?: "application/octet-stream"
+        // Some cloud/provider URIs fail metadata queries; use safe fallback values.
+        val (displayName, queriedSize) = runCatching { queryDisplayNameAndSize(uri) }
+            .getOrElse { "file_${System.currentTimeMillis()}" to 0L }
+        val mimeType = runCatching { resolver.getType(uri) }
+            .getOrNull() ?: "application/octet-stream"
         val category = MediaCategory.fromMimeType(mimeType, displayName)
 
         val fileId = UUID.randomUUID().toString()
@@ -285,17 +288,21 @@ class VaultStorageManager(
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
 
+        val height = options.outHeight
+        val width = options.outWidth
+        // Invalid dimensions/provider bounds: skip thumbnail rather than risk decode crash.
+        if (height <= 0 || width <= 0) return null
+
         var inSampleSize = 1
-        val (height, width) = options.outHeight to options.outWidth
-        if (height > reqHeight || width > reqWidth) {
-            val halfHeight = height / 2
-            val halfWidth = width / 2
-            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
-                inSampleSize *= 2
-            }
+        // Sample aggressively before decode to avoid allocating full-size images.
+        while (width / inSampleSize > reqWidth * 2 || height / inSampleSize > reqHeight * 2) {
+            inSampleSize *= 2
         }
 
-        val decodeOptions = BitmapFactory.Options().apply { this.inSampleSize = inSampleSize }
+        val decodeOptions = BitmapFactory.Options().apply {
+            this.inSampleSize = inSampleSize
+            inPreferredConfig = Bitmap.Config.RGB_565
+        }
         return resolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, decodeOptions)
         }?.let { scaleBitmapDown(it, 360) }
