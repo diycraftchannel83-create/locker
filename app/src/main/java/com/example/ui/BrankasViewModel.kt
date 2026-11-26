@@ -440,10 +440,32 @@ class BrankasViewModel(
 
     fun scanExternalVaultFolder(folderUri: String, onResult: (List<String>) -> Unit) {
         viewModelScope.launch {
-            val names = runCatching { repository.listExternalEncryptedFiles(android.net.Uri.parse(folderUri)).mapNotNull { it.name } }
-                .getOrElse { emptyList() }
+            val names = runCatching {
+                repository.listExternalEncryptedFiles(android.net.Uri.parse(folderUri))
+                    .mapNotNull { it.name }
+                    .filterNot { it.endsWith(".thumb.vault", ignoreCase = true) }
+                    .sorted()
+            }.getOrElse { emptyList() }
             onResult(names)
-            _events.tryEmit(VaultEvent.ShowMessage("Ditemukan ${names.size} file backup terenkripsi"))
+            _events.tryEmit(VaultEvent.ShowMessage("Ditemukan ${names.size} backup utama terenkripsi"))
+        }
+    }
+
+    fun restoreExternalVaultFile(
+        folderUri: String,
+        backupName: String,
+        onResult: (VaultFileEntity?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = runCatching {
+                repository.restoreExternalEncryptedFile(android.net.Uri.parse(folderUri), backupName)
+            }
+            result.onSuccess { entity ->
+                _events.tryEmit(VaultEvent.ShowMessage("Backup dipulihkan: ${entity.originalName}"))
+            }.onFailure { error ->
+                _events.tryEmit(VaultEvent.ShowMessage("Pemulihan gagal: ${error.message ?: "backup tidak kompatibel"}"))
+            }
+            onResult(result.getOrNull())
         }
     }
 
