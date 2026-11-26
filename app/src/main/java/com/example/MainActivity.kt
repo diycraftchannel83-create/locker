@@ -341,6 +341,7 @@ private fun VaultNavGraph(viewModel: BrankasViewModel) {
                 onBlockScreenshotsToggle = viewModel::setBlockScreenshots,
                 onDeleteOriginalToggle = viewModel::setDeleteOriginalOnImport,
                 onExternalVaultFolderSelected = viewModel::setExternalVaultFolder,
+                onScanExternalVault = viewModel::scanExternalVaultFolder,
                 onThemeChange = viewModel::setThemePreference,
                 onChangePin = viewModel::changePin
             )
