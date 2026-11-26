@@ -156,7 +156,9 @@ class VaultRepository(
             storageManager.deleteEncryptedAssets(outcome.entity)
             throw error
         }
-        val folderUri = securityPrefs.preferencesFlow.first().externalVaultFolderUri?.let { Uri.parse(it) }\n        storageManager.mirrorEncryptedFileToFolder(folderUri, outcome.entity)\n        if (!deleteOriginal) return outcome
+        val folderUri = securityPrefs.preferencesFlow.first().externalVaultFolderUri?.let { Uri.parse(it) }
+        storageManager.mirrorEncryptedFileToFolder(folderUri, outcome.entity)
+        if (!deleteOriginal) return outcome
 
         val deletedDirectly = storageManager.deleteOriginalAfterImport(uri)
         return outcome.copy(
@@ -217,6 +219,12 @@ class VaultRepository(
     suspend fun setBiometricEnabled(enabled: Boolean) = securityPrefs.setBiometricEnabled(enabled)
     suspend fun setAutoLockOnBackground(enabled: Boolean) = securityPrefs.setAutoLockOnBackground(enabled)
     suspend fun setBlockScreenshots(enabled: Boolean) = securityPrefs.setBlockScreenshots(enabled)
-    suspend fun setDeleteOriginalOnImport(enabled: Boolean) = securityPrefs.setDeleteOriginalOnImport(enabled)\n\n    suspend fun setExternalVaultFolder(uri: String?) {\n        securityPrefs.setExternalVaultFolder(uri)\n        val parsed = uri?.let { Uri.parse(it) } ?: return\n        dao.getAllFilesForMirror().forEach { storageManager.mirrorEncryptedFileToFolder(parsed, it) }\n    }
+    suspend fun setDeleteOriginalOnImport(enabled: Boolean) = securityPrefs.setDeleteOriginalOnImport(enabled)
+
+    suspend fun setExternalVaultFolder(uri: String?) {
+        securityPrefs.setExternalVaultFolder(uri)
+        val parsed = uri?.let { Uri.parse(it) } ?: return
+        dao.getAllFilesForMirror().forEach { storageManager.mirrorEncryptedFileToFolder(parsed, it) }
+    }
     suspend fun setThemePreference(theme: VaultThemePreference) = securityPrefs.setThemePreference(theme)
 }
