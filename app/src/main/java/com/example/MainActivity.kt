@@ -24,7 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -55,7 +55,7 @@ data class RouteSecureViewer(val fileId: String)
 @Serializable
 object RouteSettings
 
-class MainActivity : FragmentActivity() {
+class MainActivity : ComponentActivity() {
 
     private val viewModel: BrankasViewModel by viewModels { BrankasViewModel.Factory }
 
@@ -134,6 +134,7 @@ class MainActivity : FragmentActivity() {
                         is VaultEvent.RequestMediaStoreDelete -> {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && event.uris.isNotEmpty()) {
                                 runCatching {
+                                    require(event.uris.all { it.authority == MediaStore.AUTHORITY }) { "URI sumber bukan URI MediaStore yang valid untuk permintaan penghapusan" }
                                     pendingDeleteUris.value = event.uris
                                     viewModel.markLaunchingExternalPicker()
                                     val pendingIntent = MediaStore.createDeleteRequest(
