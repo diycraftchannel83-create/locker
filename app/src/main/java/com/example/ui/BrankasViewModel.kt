@@ -402,9 +402,13 @@ class BrankasViewModel(
     }
 
     fun deleteFiles(fileIds: List<String>) {
+        if (fileIds.isEmpty()) return
         viewModelScope.launch {
-            repository.deleteFiles(fileIds)
-            _events.tryEmit(VaultEvent.ShowMessage("${fileIds.size} file dihapus permanen"))
+            runCatching { repository.deleteFiles(fileIds) }
+                .onSuccess { _events.tryEmit(VaultEvent.ShowMessage("${fileIds.size} file berhasil dihapus permanen")) }
+                .onFailure { error ->
+                    _events.tryEmit(VaultEvent.ShowMessage("Penghapusan gagal: ${error.localizedMessage ?: "file masih tersimpan"}"))
+                }
         }
     }
 
