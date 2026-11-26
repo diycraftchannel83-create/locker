@@ -231,6 +231,29 @@ fun SettingsScreen(
                 }
 
                 item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Folder Brankas yang Bisa Dibuka File Manager", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Pilih folder tujuan. Aplikasi membuat folder BrankasKu berisi salinan file ciphertext .vault; foto/video asli tidak disimpan di folder ini dan tidak bisa ditampilkan Galeri.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = uiState.securityPrefs.externalVaultFolderUri?.let { "Folder eksternal tersambung" } ?: "Belum ada folder eksternal dipilih",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth()) {
+                                Text(if (uiState.securityPrefs.externalVaultFolderUri == null) "Buat / Pilih Folder Brankas" else "Ganti Folder Brankas")
+                            }
+                            if (uiState.securityPrefs.externalVaultFolderUri != null) {
+                                TextButton(onClick = { onExternalVaultFolderSelected(null) }) { Text("Putuskan Folder Eksternal") }
+                            }
+                        }
+                    }
+                }
+
+                item {
                     Text(
                         text = "Tampilan",
                         style = MaterialTheme.typography.titleSmall,
