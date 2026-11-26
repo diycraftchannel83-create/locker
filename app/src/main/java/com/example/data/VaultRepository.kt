@@ -35,6 +35,11 @@ class VaultRepository(
 
     fun getVaultDirectoryDisplay(): String = storageManager.getVaultInternalPathDisplay()
 
+    fun listExternalEncryptedFiles(folderUri: Uri) = storageManager.listExternalEncryptedFiles(folderUri)
+
+    suspend fun decryptExternalEncryptedFileToEphemeralCache(sourceUri: Uri, displayName: String? = null): File =
+        storageManager.decryptExternalEncryptedFileToEphemeralCache(sourceUri, displayName)
+
     suspend fun setupInitialPin(pin: String, enableBiometric: Boolean) {
         val salt = PinCrypto.generateSalt()
         val hash = PinCrypto.hashPin(pin, salt)
