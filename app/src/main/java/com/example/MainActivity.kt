@@ -342,6 +342,17 @@ private fun VaultNavGraph(viewModel: BrankasViewModel) {
                 onDeleteOriginalToggle = viewModel::setDeleteOriginalOnImport,
                 onExternalVaultFolderSelected = viewModel::setExternalVaultFolder,
                 onScanExternalVault = viewModel::scanExternalVaultFolder,
+                onRestoreExternalVault = { folder, name, onResult ->
+                    viewModel.restoreExternalVaultFile(folder, name) { recovered ->
+                        onResult(recovered)
+                        if (recovered != null) {
+                            navController.navigate(RouteSecureViewer(recovered.id)) {
+                                popUpTo(navController.graph.startDestinationId) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                },
                 onThemeChange = viewModel::setThemePreference,
                 onChangePin = viewModel::changePin
             )
