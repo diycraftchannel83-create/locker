@@ -332,6 +332,8 @@ class BrankasViewModel(
             var deletedCount = 0
             var pendingDeleteCount = 0
             var sourceDeleteFailedCount = 0
+            var failedCount = 0
+            val failureDetails = mutableListOf<String>()
 
             uris.forEachIndexed { index, uri ->
                 _localState.update {
@@ -355,6 +357,9 @@ class BrankasViewModel(
                     } else if (deleteOriginal) {
                         sourceDeleteFailedCount++
                     }
+                }.onFailure { error ->
+                    failedCount++
+                    failureDetails.add("File ${index + 1}: ${error.javaClass.simpleName}")
                 }
             }
 
@@ -365,7 +370,11 @@ class BrankasViewModel(
             }
 
             val msg = when {
-                importedCount == 0 -> "Gagal mengimpor file yang dipilih"
+                importedCount == 0 && failedCount > 0 ->
+                    "Import gagal untuk $failedCount file. Penyebab: ${failureDetails.firstOrNull() ?: "gagal membaca file"}"
+                importedCount == 0 -> "Tidak ada file yang berhasil diimpor"
+                failedCount > 0 ->
+                    "$importedCount file berhasil diamankan; $failedCount file gagal. ${failureDetails.firstOrNull() ?: ""}"
                 deleteOriginal && deletedCount == importedCount ->
                     "$importedCount file berhasil dipindahkan ke brankas; file asli dihapus"
                 deleteOriginal && pendingDeleteCount > 0 && sourceDeleteFailedCount == 0 ->
