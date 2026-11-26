@@ -460,7 +460,7 @@ class BrankasViewModel(
         viewModelScope.launch { repository.setBlockScreenshots(enabled) }
     }
 
-    fun setDeleteOriginalOnImport(enabled: Boolean) {
+    fun setExternalVaultFolder(uri: String?) {\n        viewModelScope.launch {\n            runCatching { repository.setExternalVaultFolder(uri) }\n                .onSuccess { _events.tryEmit(VaultEvent.ShowMessage("Folder BrankasKu berhasil disiapkan. Salinan file terenkripsi disinkronkan.")) }\n                .onFailure { _events.tryEmit(VaultEvent.ShowMessage("Gagal menyiapkan folder BrankasKu: ${it.localizedMessage}")) }\n        }\n    }\n\n    fun setDeleteOriginalOnImport(enabled: Boolean) {
         viewModelScope.launch { repository.setDeleteOriginalOnImport(enabled) }
     }
 
