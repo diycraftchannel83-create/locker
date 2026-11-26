@@ -436,6 +436,11 @@ class BrankasViewModel(
     suspend fun decryptToEphemeralCacheFile(file: VaultFileEntity): File =
         repository.decryptToEphemeralCacheFile(file)
 
+    fun listExternalEncryptedFiles(folderUri: android.net.Uri) = repository.listExternalEncryptedFiles(folderUri)
+
+    suspend fun decryptExternalEncryptedFileToEphemeralCache(sourceUri: android.net.Uri, displayName: String? = null): File =
+        repository.decryptExternalEncryptedFileToEphemeralCache(sourceUri, displayName)
+
     fun secureDeleteEphemeralFile(file: File) = repository.secureDeleteEphemeralFile(file)
 
     fun changePin(currentPin: String, newPin: String, onResult: (Boolean) -> Unit) {
