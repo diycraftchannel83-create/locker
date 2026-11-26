@@ -56,6 +56,29 @@ class VaultStorageManager(
 
     fun getVaultInternalPathDisplay(): String = vaultRootDir.absolutePath
 
+    /** Lists encrypted backup files in the user-selected external folder. */
+    fun listExternalEncryptedFiles(folderUri: Uri): List<DocumentFile> {
+        val root = DocumentFile.fromTreeUri(context, folderUri) ?: return emptyList()
+        val vaultFolder = root.findFile("BrankasKu") ?: root
+        return vaultFolder.listFiles().filter { it.isFile && it.name?.endsWith(".vault", ignoreCase = true) == true }
+    }
+
+    /** Decrypts external ciphertext into app-private temporary storage for secure viewing only. */
+    suspend fun decryptExternalEncryptedFileToEphemeralCache(sourceUri: Uri, displayName: String? = null): File = withContext(Dispatchers.IO) {
+        val safeName = (displayName ?: "encrypted_preview").replace(Regex("[^A-Za-z0-9._-]"), "_").take(80)
+        val previewDir = File(context.cacheDir, "vault_ephemeral").apply { if (!exists()) mkdirs() }
+        val tempFile = File(previewDir, "external_" + UUID.randomUUID() + "_" + safeName + ".tmp")
+        try {
+            context.contentResolver.openInputStream(sourceUri)?.buffered()?.use { input ->
+                tempFile.outputStream().buffered().use { output -> cryptoEngine.decryptStream(input, output) }
+            } ?: throw IllegalStateException("File terenkripsi eksternal tidak dapat dibaca")
+            tempFile
+        } catch (error: Throwable) {
+            secureDeleteFile(tempFile)
+            throw error
+        }
+    }
+
 
     fun mirrorEncryptedFileToFolder(folderUri: Uri?, entity: VaultFileEntity) {
         if (folderUri == null) return
