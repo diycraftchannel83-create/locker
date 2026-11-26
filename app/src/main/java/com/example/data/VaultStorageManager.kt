@@ -144,7 +144,7 @@ class VaultStorageManager(
             if (uri.authority == MediaStore.AUTHORITY) {
                 uri
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                MediaStore.getMediaUri(context, uri)
+                MediaStore.getMediaUri(context, uri) ?: uri.takeIf { it.authority == MediaStore.AUTHORITY }
             } else {
                 null
             }
