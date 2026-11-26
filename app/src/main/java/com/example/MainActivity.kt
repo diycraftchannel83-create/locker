@@ -277,7 +277,8 @@ private fun VaultNavGraph(viewModel: BrankasViewModel) {
                 onBiometricToggle = viewModel::setBiometricEnabled,
                 onAutoLockToggle = viewModel::setAutoLockOnBackground,
                 onBlockScreenshotsToggle = viewModel::setBlockScreenshots,
-                onDeleteOriginalToggle = viewModel::setDeleteOriginalOnImport,\n                onExternalVaultFolderSelected = viewModel::setExternalVaultFolder,
+                onDeleteOriginalToggle = viewModel::setDeleteOriginalOnImport,
+                onExternalVaultFolderSelected = viewModel::setExternalVaultFolder,
                 onThemeChange = viewModel::setThemePreference,
                 onChangePin = viewModel::changePin
             )
