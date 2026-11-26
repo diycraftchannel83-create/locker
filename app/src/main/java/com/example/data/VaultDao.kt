@@ -32,6 +32,9 @@ interface VaultDao {
     @Query("SELECT COUNT(*) FROM albums")
     suspend fun getAlbumCount(): Int
 
+    @Query("SELECT * FROM albums ORDER BY isPinned DESC, sortOrder ASC, createdAt ASC LIMIT 1")
+    suspend fun getRecoveryTargetAlbum(): AlbumEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAlbum(album: AlbumEntity)
 
@@ -64,6 +67,9 @@ interface VaultDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFile(file: VaultFileEntity)
+
+    @Query("SELECT * FROM vault_files WHERE originalName = :originalName LIMIT 1")
+    suspend fun findFileByOriginalName(originalName: String): VaultFileEntity?
 
     @Query("UPDATE vault_files SET albumId = :targetAlbumId WHERE id IN (:fileIds)")
     suspend fun moveFilesToAlbum(fileIds: List<String>, targetAlbumId: String)
