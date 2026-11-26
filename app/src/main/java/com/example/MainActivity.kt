@@ -9,6 +9,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.viewModels
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Box
@@ -101,6 +103,30 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val mediaPermissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestMultiplePermissions()
+            ) { results ->
+                if (results.values.any { it }) {
+                    viewModel.emitMessage("Izin foto/video diberikan.")
+                } else {
+                    viewModel.emitMessage("Izin foto/video belum diberikan. Anda tetap dapat mengimpor menggunakan pemilih media Android.")
+                }
+            }
+
+            fun mediaPermissionsForCurrentAndroid(): Array<String> = when {
+                Build.VERSION.SDK_INT >= 34 -> arrayOf(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO,
+                    Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+                )
+                Build.VERSION.SDK_INT >= 33 -> arrayOf(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO
+                )
+                Build.VERSION.SDK_INT >= 23 -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+                else -> emptyArray()
+            }
+
             val mediaDeleteLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.StartIntentSenderForResult()
             ) { result ->
@@ -172,8 +198,8 @@ class MainActivity : ComponentActivity() {
                             AlertDialog(
                                 onDismissRequest = { firstLaunchPermissionInfo.value = false; getSharedPreferences("brankasku_first_run", MODE_PRIVATE).edit().putBoolean("permission_info_seen", true).apply() },
                                 title = { Text("Akses Folder & Penghapusan File") },
-                                text = { Text("BrankasKu tidak meminta akses semua file secara paksa. Untuk menyimpan salinan terenkripsi di folder yang dapat dibuka File Manager, pilih folder melalui Pengaturan Keamanan. Saat menghapus file asli setelah proses enkripsi, Android akan menampilkan persetujuan sistem. File .vault di folder luar tetap terenkripsi dan hanya dapat dibuka oleh BrankasKu pada perangkat yang memiliki kunci enkripsi asli.") },
-                                confirmButton = { Button(onClick = { firstLaunchPermissionInfo.value = false; getSharedPreferences("brankasku_first_run", MODE_PRIVATE).edit().putBoolean("permission_info_seen", true).apply() }) { Text("Saya Mengerti") } }
+                                text = { Text("BrankasKu memerlukan izin Foto dan Video agar dapat menelusuri media yang ingin Anda amankan. Android akan menampilkan dialog izin. Pada Android yang mendukungnya, Anda dapat memilih akses penuh atau hanya media terpilih. File asli hanya akan diminta untuk dihapus setelah file terenkripsi tersimpan dan terverifikasi.") },
+                                confirmButton = { Button(onClick = { firstLaunchPermissionInfo.value = false; getSharedPreferences("brankasku_first_run", MODE_PRIVATE).edit().putBoolean("permission_info_seen", true).apply(); val permissions = mediaPermissionsForCurrentAndroid(); val missing = permissions.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }; if (missing.isNotEmpty()) mediaPermissionLauncher.launch(missing.toTypedArray()) }) { Text("Izinkan Foto & Video") } }
                             )
                         }
                         Crossfade(
