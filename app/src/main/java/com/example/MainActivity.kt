@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -68,6 +71,7 @@ class MainActivity : ComponentActivity() {
             val snackbarHostState = remember { SnackbarHostState() }
             val lifecycleOwner = LocalLifecycleOwner.current
             val pendingDeleteUris = remember { mutableStateOf<List<android.net.Uri>>(emptyList()) }
+            val firstLaunchPermissionInfo = remember { mutableStateOf(!getSharedPreferences("brankasku_first_run", MODE_PRIVATE).getBoolean("permission_info_seen", false)) }
 
             // Enforce FLAG_SECURE when locked or when screenshot blocking is enabled
             val shouldBlockScreenshots = uiState.isLocked || uiState.securityPrefs.blockScreenshots
@@ -164,6 +168,14 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(outerPadding)
                     ) {
+                        if (!locked && firstLaunchPermissionInfo.value) {
+                            AlertDialog(
+                                onDismissRequest = { firstLaunchPermissionInfo.value = false; getSharedPreferences("brankasku_first_run", MODE_PRIVATE).edit().putBoolean("permission_info_seen", true).apply() },
+                                title = { Text("Akses Folder & Penghapusan File") },
+                                text = { Text("BrankasKu tidak meminta akses semua file secara paksa. Untuk menyimpan salinan terenkripsi di folder yang dapat dibuka File Manager, pilih folder melalui Pengaturan Keamanan. Saat menghapus file asli setelah proses enkripsi, Android akan menampilkan persetujuan sistem. File .vault di folder luar tetap terenkripsi dan hanya dapat dibuka oleh BrankasKu pada perangkat yang memiliki kunci enkripsi asli.") },
+                                confirmButton = { Button(onClick = { firstLaunchPermissionInfo.value = false; getSharedPreferences("brankasku_first_run", MODE_PRIVATE).edit().putBoolean("permission_info_seen", true).apply() }) { Text("Saya Mengerti") } }
+                            )
+                        }
                         Crossfade(
                             targetState = uiState.isLocked,
                             label = "vault_lock_transition"
