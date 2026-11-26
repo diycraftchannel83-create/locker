@@ -394,24 +394,32 @@ class VaultStorageManager(
     }
 
     fun deleteEncryptedAssets(fileEntity: VaultFileEntity) {
+        val blob = File(blobsDir, fileEntity.encryptedFileName)
+        val thumb = fileEntity.encryptedThumbName?.let { File(thumbsDir, it) }
+        val blobDeleted = secureDeleteFile(blob)
+        val thumbDeleted = thumb?.let(::secureDeleteFile) ?: true
+        if (!blobDeleted || !thumbDeleted) {
+            throw IllegalStateException("File terenkripsi gagal dihapus dari penyimpanan internal")
+        }
         thumbnailCache.remove(fileEntity.id)
-        secureDeleteFile(File(blobsDir, fileEntity.encryptedFileName))
-        fileEntity.encryptedThumbName?.let { secureDeleteFile(File(thumbsDir, it)) }
     }
 
-    fun secureDeleteFile(file: File) {
-        if (!file.exists()) return
+    /** Returns true only when the file is absent after the delete attempt. */
+    fun secureDeleteFile(file: File): Boolean {
+        if (!file.exists()) return true
         runCatching {
             val len = file.length()
             if (len > 0L) {
                 RandomAccessFile(file, "rw").use { raf ->
+                    // Wipe a bounded prefix; ciphertext itself is not plaintext sensitive.
                     val wipeLen = minOf(len, 65536L).toInt()
                     raf.seek(0L)
                     raf.write(ByteArray(wipeLen))
                 }
             }
         }
-        file.delete()
+        runCatching { file.delete() }
+        return !file.exists()
     }
 
     fun clearSensitiveCaches() {
