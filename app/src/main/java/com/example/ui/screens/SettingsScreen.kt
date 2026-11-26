@@ -77,12 +77,15 @@ fun SettingsScreen(
     onBlockScreenshotsToggle: (Boolean) -> Unit,
     onDeleteOriginalToggle: (Boolean) -> Unit,
     onExternalVaultFolderSelected: (String?) -> Unit,
+    onScanExternalVault: (String, (List<String>) -> Unit) -> Unit,
     onThemeChange: (VaultThemePreference) -> Unit,
     onChangePin: (currentPin: String, newPin: String, onResult: (Boolean) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     val activity = context as? FragmentActivity
     var showChangePinDialog by remember { mutableStateOf(false) }
+    var externalVaultFiles by remember { mutableStateOf<List<String>>(emptyList()) }
+    var externalVaultScanDone by remember { mutableStateOf(false) }
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { treeUri ->
         if (treeUri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(treeUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
@@ -248,6 +251,37 @@ fun SettingsScreen(
                             }
                             if (uiState.securityPrefs.externalVaultFolderUri != null) {
                                 TextButton(onClick = { onExternalVaultFolderSelected(null) }) { Text("Putuskan Folder Eksternal") }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Backup Terenkripsi yang Ditemukan", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Pindai folder BrankasKu eksternal untuk menemukan file .vault. File backup tidak dihapus atau ditimpa oleh pemindaian ini.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Button(
+                                onClick = {
+                                    val folder = uiState.securityPrefs.externalVaultFolderUri
+                                    if (folder != null) onScanExternalVault(folder) { names ->
+                                        externalVaultFiles = names
+                                        externalVaultScanDone = true
+                                    }
+                                },
+                                enabled = uiState.securityPrefs.externalVaultFolderUri != null,
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Pindai Backup Eksternal") }
+                            if (externalVaultScanDone) {
+                                Text("Jumlah file ditemukan: ${externalVaultFiles.size}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                                if (externalVaultFiles.isEmpty()) Text("Tidak ada file .vault ditemukan pada folder yang tersambung.", style = MaterialTheme.typography.bodySmall)
+                                else {
+                                    externalVaultFiles.take(30).forEach { name -> Text("• $name", style = MaterialTheme.typography.bodySmall) }
+                                    if (externalVaultFiles.size > 30) Text("… dan ${externalVaultFiles.size - 30} file lainnya", style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                         }
                     }
