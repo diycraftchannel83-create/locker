@@ -271,30 +271,14 @@ fun VaultHomeScreen(
                     )
                 }
 
-                // Search & Filter
+                // Folder browser: browse vault by media type; search is intentionally removed.
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = uiState.searchQuery,
-                            onValueChange = onSearchQueryChange,
-                            placeholder = { Text("Cari file terenkripsi di brankas...") },
-                            leadingIcon = {
-                                Icon(Icons.Rounded.Search, contentDescription = null)
-                            },
-                            trailingIcon = {
-                                if (uiState.searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { onSearchQueryChange("") }) {
-                                        Icon(Icons.Rounded.Close, contentDescription = "Bersihkan pencarian")
-                                    }
-                                }
-                            },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("vault_search_input")
+                        Text(
+                            text = "Jelajahi Folder Brankas",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
                         )
-
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -304,7 +288,7 @@ fun VaultHomeScreen(
                             FilterChip(
                                 selected = uiState.selectedCategory == null,
                                 onClick = { onCategorySelected(null) },
-                                label = { Text("Semua") }
+                                label = { Text("Folder & Album") }
                             )
                             listOf(
                                 MediaCategory.IMAGE,
@@ -325,7 +309,7 @@ fun VaultHomeScreen(
                 }
 
                 // If searching or filtering by category, display matching files directly
-                if (uiState.searchQuery.isNotBlank() || uiState.selectedCategory != null) {
+                if (uiState.selectedCategory != null) {
                     item {
                         Text(
                             text = "Hasil (${filteredFiles.size} file)",
@@ -356,7 +340,7 @@ fun VaultHomeScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "Album Kustom",
+                                    text = "Folder Brankas",
                                     style = MaterialTheme.typography.titleLarge
                                 )
                                 Text(
