@@ -192,7 +192,9 @@ class VaultStorageManager(
             if (uri.authority == MediaStore.AUTHORITY) {
                 uri
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                MediaStore.getMediaUri(context, uri) ?: uri.takeIf { it.authority == MediaStore.AUTHORITY }
+                // Photo Picker/provider URIs must be converted to a real MediaStore URI.
+                // Never pass a picker/provider URI into createDeleteRequest: Android rejects it.
+                MediaStore.getMediaUri(context, uri)?.takeIf { it.authority == MediaStore.AUTHORITY }
             } else {
                 null
             }
