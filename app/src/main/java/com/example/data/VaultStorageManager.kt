@@ -11,6 +11,7 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.LruCache
+import androidx.documentfile.provider.DocumentFile
 import com.example.crypto.VaultCryptoEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -54,6 +55,30 @@ class VaultStorageManager(
     }
 
     fun getVaultInternalPathDisplay(): String = vaultRootDir.absolutePath
+
+
+    fun mirrorEncryptedFileToFolder(folderUri: Uri?, entity: VaultFileEntity) {
+        if (folderUri == null) return
+        runCatching {
+            val parent = DocumentFile.fromTreeUri(context, folderUri) ?: return
+            val vaultFolder = parent.findFile("BrankasKu") ?: parent.createDirectory("BrankasKu") ?: return
+            if (vaultFolder.findFile(".nomedia") == null) vaultFolder.createFile("text/plain", ".nomedia")
+            val sourceBlob = File(blobsDir, entity.encryptedFileName)
+            if (sourceBlob.exists()) copyCipherFile(sourceBlob, vaultFolder, "${entity.id}.vault")
+            entity.encryptedThumbName?.let { name ->
+                val sourceThumb = File(thumbsDir, name)
+                if (sourceThumb.exists()) copyCipherFile(sourceThumb, vaultFolder, "${entity.id}.thumb.vault")
+            }
+        }
+    }
+
+    private fun copyCipherFile(source: File, folder: DocumentFile, targetName: String) {
+        folder.findFile(targetName)?.delete()
+        val target = folder.createFile("application/octet-stream", targetName) ?: return
+        context.contentResolver.openOutputStream(target.uri, "w")?.use { output ->
+            source.inputStream().use { input -> input.copyTo(output) }
+        }
+    }
 
     suspend fun importUri(
         uri: Uri,
