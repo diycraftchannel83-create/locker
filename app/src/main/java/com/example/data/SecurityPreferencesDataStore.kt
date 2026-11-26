@@ -25,6 +25,7 @@ data class SecurityPreferencesState(
     val blockScreenshots: Boolean = true,
     val deleteOriginalOnImport: Boolean = true,
     val themePreference: VaultThemePreference = VaultThemePreference.DARK,
+    val externalVaultFolderUri: String? = null,
     val failedAttempts: Int = 0,
     val lockoutUntilMillis: Long = 0L
 )
@@ -40,6 +41,7 @@ class SecurityPreferencesDataStore(private val context: Context) {
         val BLOCK_SCREENSHOTS = booleanPreferencesKey("block_screenshots")
         val DELETE_ORIGINAL = booleanPreferencesKey("delete_original_on_import")
         val THEME_PREF = stringPreferencesKey("theme_preference")
+        val EXTERNAL_VAULT_FOLDER = stringPreferencesKey("external_vault_folder_uri")
         val FAILED_ATTEMPTS = intPreferencesKey("failed_attempts")
         val LOCKOUT_UNTIL = longPreferencesKey("lockout_until_millis")
     }
@@ -101,7 +103,7 @@ class SecurityPreferencesDataStore(private val context: Context) {
         context.securityDataStore.edit { it[Keys.DELETE_ORIGINAL] = enabled }
     }
 
-    suspend fun setThemePreference(theme: VaultThemePreference) {
+    suspend fun setExternalVaultFolder(uri: String?) {\n        context.securityDataStore.edit { prefs ->\n            if (uri == null) prefs.remove(Keys.EXTERNAL_VAULT_FOLDER) else prefs[Keys.EXTERNAL_VAULT_FOLDER] = uri\n        }\n    }\n\n    suspend fun setThemePreference(theme: VaultThemePreference) {
         context.securityDataStore.edit { it[Keys.THEME_PREF] = theme.name }
     }
 
