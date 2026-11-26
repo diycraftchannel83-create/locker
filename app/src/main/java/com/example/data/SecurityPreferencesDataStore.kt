@@ -103,7 +103,13 @@ class SecurityPreferencesDataStore(private val context: Context) {
         context.securityDataStore.edit { it[Keys.DELETE_ORIGINAL] = enabled }
     }
 
-    suspend fun setExternalVaultFolder(uri: String?) {\n        context.securityDataStore.edit { prefs ->\n            if (uri == null) prefs.remove(Keys.EXTERNAL_VAULT_FOLDER) else prefs[Keys.EXTERNAL_VAULT_FOLDER] = uri\n        }\n    }\n\n    suspend fun setThemePreference(theme: VaultThemePreference) {
+    suspend fun setExternalVaultFolder(uri: String?) {
+        context.securityDataStore.edit { prefs ->
+            if (uri == null) prefs.remove(Keys.EXTERNAL_VAULT_FOLDER) else prefs[Keys.EXTERNAL_VAULT_FOLDER] = uri
+        }
+    }
+
+    suspend fun setThemePreference(theme: VaultThemePreference) {
         context.securityDataStore.edit { it[Keys.THEME_PREF] = theme.name }
     }
 
