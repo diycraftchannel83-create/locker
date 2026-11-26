@@ -438,6 +438,15 @@ class BrankasViewModel(
 
     fun listExternalEncryptedFiles(folderUri: android.net.Uri) = repository.listExternalEncryptedFiles(folderUri)
 
+    fun scanExternalVaultFolder(folderUri: android.net.Uri, onResult: (List<String>) -> Unit) {
+        viewModelScope.launch {
+            val names = runCatching { repository.listExternalEncryptedFiles(folderUri).mapNotNull { it.name } }
+                .getOrElse { emptyList() }
+            onResult(names)
+            _events.tryEmit(VaultEvent.ShowMessage("Ditemukan ${names.size} file backup terenkripsi"))
+        }
+    }
+
     suspend fun decryptExternalEncryptedFileToEphemeralCache(sourceUri: android.net.Uri, displayName: String? = null): File =
         repository.decryptExternalEncryptedFileToEphemeralCache(sourceUri, displayName)
 
