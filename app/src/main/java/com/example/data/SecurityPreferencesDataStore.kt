@@ -60,6 +60,7 @@ class SecurityPreferencesDataStore(private val context: Context) {
             deleteOriginalOnImport = prefs[Keys.DELETE_ORIGINAL] ?: true,
             themePreference = runCatching { VaultThemePreference.valueOf(themeStr) }
                 .getOrDefault(VaultThemePreference.DARK),
+            externalVaultFolderUri = prefs[Keys.EXTERNAL_VAULT_FOLDER],
             failedAttempts = prefs[Keys.FAILED_ATTEMPTS] ?: 0,
             lockoutUntilMillis = prefs[Keys.LOCKOUT_UNTIL] ?: 0L
         )
