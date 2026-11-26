@@ -63,6 +63,7 @@ import androidx.fragment.app.FragmentActivity
 import com.example.biometric.BiometricAuthHelper
 import com.example.biometric.BiometricAvailability
 import com.example.ui.VaultUiState
+import com.example.data.VaultFileEntity
 import com.example.ui.components.AesBadgePill
 import com.example.ui.theme.JetBrainsMonoFamily
 import com.example.ui.theme.VaultThemePreference
@@ -78,6 +79,7 @@ fun SettingsScreen(
     onDeleteOriginalToggle: (Boolean) -> Unit,
     onExternalVaultFolderSelected: (String?) -> Unit,
     onScanExternalVault: (String, (List<String>) -> Unit) -> Unit,
+    onRestoreExternalVault: (String, String, (VaultFileEntity?) -> Unit) -> Unit,
     onThemeChange: (VaultThemePreference) -> Unit,
     onChangePin: (currentPin: String, newPin: String, onResult: (Boolean) -> Unit) -> Unit
 ) {
@@ -86,6 +88,7 @@ fun SettingsScreen(
     var showChangePinDialog by remember { mutableStateOf(false) }
     var externalVaultFiles by remember { mutableStateOf<List<String>>(emptyList()) }
     var externalVaultScanDone by remember { mutableStateOf(false) }
+    var restoringBackupName by remember { mutableStateOf<String?>(null) }
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { treeUri ->
         if (treeUri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(treeUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
@@ -279,8 +282,33 @@ fun SettingsScreen(
                                 Text("Jumlah file ditemukan: ${externalVaultFiles.size}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                                 if (externalVaultFiles.isEmpty()) Text("Tidak ada file .vault ditemukan pada folder yang tersambung.", style = MaterialTheme.typography.bodySmall)
                                 else {
-                                    externalVaultFiles.take(30).forEach { name -> Text("• $name", style = MaterialTheme.typography.bodySmall) }
+                                    externalVaultFiles.take(30).forEach { name ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                                            Button(
+                                                onClick = {
+                                                    val folder = uiState.securityPrefs.externalVaultFolderUri
+                                                    if (folder != null && restoringBackupName == null) {
+                                                        restoringBackupName = name
+                                                        onRestoreExternalVault(folder, name) { restored ->
+                                                            restoringBackupName = null
+                                                            if (restored == null) externalVaultScanDone = true
+                                                        }
+                                                    }
+                                                },
+                                                enabled = restoringBackupName == null,
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                            ) {
+                                                Text(if (restoringBackupName == name) "Memulihkan…" else "Pulihkan & Buka")
+                                            }
+                                        }
+                                    }
                                     if (externalVaultFiles.size > 30) Text("… dan ${externalVaultFiles.size - 30} file lainnya", style = MaterialTheme.typography.bodySmall)
+                                    Text("File UUID lama mungkin hanya dapat dikenali dari tanda file (foto/video/dokumen); nama asli atau metadata yang tidak ikut dibackup tidak dapat dipulihkan.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
