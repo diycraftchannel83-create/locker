@@ -147,6 +147,26 @@ class VaultRepository(
         dao.deleteAlbumById(albumId)
     }
 
+    suspend fun restoreExternalEncryptedFile(folderUri: Uri, backupName: String): VaultFileEntity {
+        ensureDefaultAlbums()
+        val targetAlbum = dao.getRecoveryTargetAlbum()
+            ?: throw IllegalStateException("Album tujuan pemulihan tidak tersedia")
+        val recovered = storageManager.recoverExternalEncryptedFile(folderUri, backupName, targetAlbum.id)
+        val existing = dao.findFileByOriginalName(recovered.originalName)
+        if (existing != null) {
+            storageManager.deleteEncryptedAssets(recovered)
+            return existing
+        }
+        try {
+            dao.insertFile(recovered)
+        } catch (error: Throwable) {
+            storageManager.deleteEncryptedAssets(recovered)
+            throw error
+        }
+        // Do not mirror during recovery: the selected external backup must remain unchanged.
+        return recovered
+    }
+
     suspend fun importFile(
         uri: Uri,
         albumId: String,
