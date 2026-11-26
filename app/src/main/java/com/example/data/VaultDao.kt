@@ -50,6 +50,9 @@ interface VaultDao {
     @Query("SELECT * FROM vault_files WHERE albumId = :albumId")
     suspend fun getFilesInAlbumSync(albumId: String): List<VaultFileEntity>
 
+    @Query("SELECT * FROM vault_files")
+    suspend fun getAllFilesForMirror(): List<VaultFileEntity>
+
     @Query("SELECT * FROM vault_files ORDER BY createdAt DESC")
     fun observeAllFiles(): Flow<List<VaultFileEntity>>
 
