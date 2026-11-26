@@ -11,6 +11,7 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.LruCache
+import android.webkit.MimeTypeMap
 import androidx.documentfile.provider.DocumentFile
 import com.example.crypto.VaultCryptoEngine
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +63,138 @@ class VaultStorageManager(
         val vaultFolder = root.findFile("BrankasKu") ?: root
         return vaultFolder.listFiles().filter { it.isFile && it.name?.endsWith(".vault", ignoreCase = true) == true }
     }
+
+    /**
+     * Validates a selected external backup by decrypting it to a private temporary file,
+     * then copies the original ciphertext into the internal vault. External data is never
+     * deleted or replaced during recovery.
+     */
+    suspend fun recoverExternalEncryptedFile(
+        folderUri: Uri,
+        backupName: String,
+        albumId: String
+    ): VaultFileEntity = withContext(Dispatchers.IO) {
+        require(backupName.endsWith(".vault", ignoreCase = true) && !backupName.endsWith(".thumb.vault", ignoreCase = true)) {
+            "File bukan backup utama .vault"
+        }
+        require(backupName == backupName.substringAfterLast('/')) { "Nama file backup tidak valid" }
+        val root = DocumentFile.fromTreeUri(context, folderUri) ?: throw IllegalStateException("Folder backup tidak dapat dibuka")
+        val backupFolder = root.findFile("BrankasKu") ?: root
+        val source = backupFolder.findFile(backupName)?.takeIf { it.isFile }
+            ?: throw IllegalStateException("Backup $backupName tidak ditemukan")
+        val tempDir = File(context.cacheDir, "vault_recovery").apply { if (!exists()) mkdirs() }
+        val plaintextTemp = File(tempDir, "recover_${UUID.randomUUID()}.tmp")
+        var internalBlob: File? = null
+        var internalThumb: File? = null
+        try {
+            context.contentResolver.openInputStream(source.uri)?.buffered()?.use { input ->
+                plaintextTemp.outputStream().buffered().use { output -> cryptoEngine.decryptStream(input, output) }
+            } ?: throw IllegalStateException("Backup eksternal tidak dapat dibaca")
+            if (plaintextTemp.length() <= 0L) throw IllegalStateException("Backup terdekripsi kosong")
+            val info = detectRecoveredFileInfo(plaintextTemp, backupName)
+            val id = UUID.randomUUID().toString()
+            val encryptedName = "$id.vlt"
+            internalBlob = File(blobsDir, encryptedName)
+            context.contentResolver.openInputStream(source.uri)?.buffered()?.use { input ->
+                internalBlob!!.outputStream().buffered().use { output -> input.copyTo(output) }
+            } ?: throw IllegalStateException("Gagal menyalin ciphertext backup")
+            var encryptedThumbName: String? = null
+            if (info.category == MediaCategory.IMAGE || info.category == MediaCategory.VIDEO) {
+                val thumbBytes = createThumbnailJpegFromFile(plaintextTemp, info.category)
+                if (thumbBytes != null && thumbBytes.isNotEmpty()) {
+                    val thumbName = "$id.thm"
+                    internalThumb = File(thumbsDir, thumbName)
+                    internalThumb!!.writeBytes(cryptoEngine.encryptBytes(thumbBytes))
+                    encryptedThumbName = thumbName
+                    thumbBytes.fill(0)
+                }
+            }
+            VaultFileEntity(
+                id = id,
+                albumId = albumId,
+                originalName = info.displayName,
+                mimeType = info.mimeType,
+                category = info.category,
+                originalSizeBytes = plaintextTemp.length(),
+                encryptedFileName = encryptedName,
+                encryptedThumbName = encryptedThumbName,
+                encryptionAlgorithm = "AES-256-GCM",
+                createdAt = System.currentTimeMillis()
+            )
+        } catch (error: Throwable) {
+            internalBlob?.let(::secureDeleteFile)
+            internalThumb?.let(::secureDeleteFile)
+            throw error
+        } finally {
+            secureDeleteFile(plaintextTemp)
+        }
+    }
+
+    private data class RecoveredFileInfo(val mimeType: String, val displayName: String, val category: MediaCategory)
+
+    private fun detectRecoveredFileInfo(file: File, backupName: String): RecoveredFileInfo {
+        val header = ByteArray(16)
+        val read = file.inputStream().use { it.read(header) }.coerceAtLeast(0)
+        val baseName = backupName.removeSuffix(".vault")
+        val baseExt = baseName.substringAfterLast('.', "").lowercase()
+        val baseMime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(baseExt)
+        val mime = when {
+            read >= 3 && header[0] == 0xFF.toByte() && header[1] == 0xD8.toByte() && header[2] == 0xFF.toByte() -> "image/jpeg"
+            read >= 8 && header.copyOfRange(0, 8).contentEquals(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)) -> "image/png"
+            read >= 6 && String(header, 0, 6, Charsets.US_ASCII).startsWith("GIF8") -> "image/gif"
+            read >= 12 && String(header, 0, 4, Charsets.US_ASCII) == "RIFF" && String(header, 8, 4, Charsets.US_ASCII) == "WEBP" -> "image/webp"
+            read >= 12 && String(header, 4, 4, Charsets.US_ASCII) == "ftyp" -> "video/mp4"
+            read >= 4 && header[0] == 0x1A.toByte() && header[1] == 0x45.toByte() && header[2] == 0xDF.toByte() && header[3] == 0xA3.toByte() -> "video/webm"
+            read >= 4 && String(header, 0, 4, Charsets.US_ASCII) == "%PDF" -> "application/pdf"
+            read >= 3 && String(header, 0, 3, Charsets.US_ASCII) == "ID3" -> "audio/mpeg"
+            read >= 12 && String(header, 0, 4, Charsets.US_ASCII) == "RIFF" && String(header, 8, 4, Charsets.US_ASCII) == "WAVE" -> "audio/wav"
+            read >= 4 && String(header, 0, 4, Charsets.US_ASCII) == "OggS" -> "audio/ogg"
+            read >= 2 && header[0] == 0xFF.toByte() && (header[1].toInt() and 0xE0) == 0xE0 -> "audio/mpeg"
+            baseMime != null -> baseMime
+            else -> "application/octet-stream"
+        }
+        val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
+            ?: baseExt.takeIf { it.isNotBlank() && !it.matches(Regex("[0-9a-fA-F-]{20,}")) }
+        val looksUuid = baseName.matches(Regex("[0-9a-fA-F-]{20,}"))
+        val displayName = if (looksUuid || baseName.isBlank()) {
+            "Recovered_$baseName" + (ext?.let { ".${it}" } ?: "")
+        } else if (baseName.substringAfterLast('.', "").isBlank() && ext != null) {
+            "$baseName.$ext"
+        } else baseName
+        return RecoveredFileInfo(mime, displayName, MediaCategory.fromMimeType(mime, displayName))
+    }
+
+    private fun createThumbnailJpegFromFile(file: File, category: MediaCategory): ByteArray? = runCatching {
+        val bitmap = when (category) {
+            MediaCategory.IMAGE -> {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(file.absolutePath, bounds)
+                if (bounds.outWidth <= 0 || bounds.outHeight <= 0) null else {
+                    var sample = 1
+                    while (bounds.outWidth / sample > 720 || bounds.outHeight / sample > 720) sample *= 2
+                    BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply {
+                        inSampleSize = sample
+                        inPreferredConfig = Bitmap.Config.RGB_565
+                    })?.let { scaleBitmapDown(it, 360) }
+                }
+            }
+            MediaCategory.VIDEO -> {
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(file.absolutePath)
+                    retriever.getFrameAtTime(1_000_000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                        ?: retriever.getFrameAtTime(0L)
+                } finally { retriever.release() }
+            }
+            else -> null
+        }
+        bitmap?.let {
+            val output = ByteArrayOutputStream()
+            it.compress(Bitmap.CompressFormat.JPEG, 82, output)
+            it.recycle()
+            output.toByteArray()
+        }
+    }.getOrNull()
 
     /** Decrypts external ciphertext into app-private temporary storage for secure viewing only. */
     suspend fun decryptExternalEncryptedFileToEphemeralCache(sourceUri: Uri, displayName: String? = null): File = withContext(Dispatchers.IO) {
