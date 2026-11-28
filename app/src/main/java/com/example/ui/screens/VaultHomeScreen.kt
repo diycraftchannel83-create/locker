@@ -115,6 +115,7 @@ fun VaultHomeScreen(
     onClearExternalPickerFlag: () -> Unit,
     onLockNow: () -> Unit,
     onOpenSettings: () -> Unit,
+    onScanVault: () -> Unit,
     loadThumbnail: suspend (VaultFileEntity) -> Bitmap?
 ) {
     var showCreateAlbumDialog by remember { mutableStateOf(false) }
@@ -255,6 +256,28 @@ fun VaultHomeScreen(
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 )
+                            }
+                        }
+                    }
+                }
+
+                // Background recovery scan status and manual trigger
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Pemindaian Vault Background", fontWeight = FontWeight.SemiBold)
+                            uiState.vaultScanProgress?.let { progress ->
+                                Text(progress.currentFileName, style = MaterialTheme.typography.bodySmall)
+                                LinearProgressIndicator(
+                                    progress = { if (progress.total > 0) progress.processed.toFloat() / progress.total else 0f },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            } ?: Text(uiState.vaultScanSummary ?: "Scan otomatis saat brankas dibuka untuk menemukan file ciphertext lama di folder BrankasKu.", style = MaterialTheme.typography.bodySmall)
+                            OutlinedButton(onClick = onScanVault, enabled = uiState.vaultScanProgress == null) {
+                                Text("Scan Vault Sekarang")
                             }
                         }
                     }
