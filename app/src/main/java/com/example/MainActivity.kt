@@ -277,6 +277,7 @@ private fun VaultNavGraph(viewModel: BrankasViewModel) {
                 onClearExternalPickerFlag = viewModel::clearExternalPickerFlag,
                 onLockNow = viewModel::lockVault,
                 onOpenSettings = { navController.navigate(RouteSettings) },
+                onScanVault = viewModel::startBackgroundVaultScan,
                 loadThumbnail = viewModel::loadThumbnail
             )
         }
