@@ -71,6 +71,9 @@ interface VaultDao {
     @Query("SELECT * FROM vault_files WHERE originalName = :originalName LIMIT 1")
     suspend fun findFileByOriginalName(originalName: String): VaultFileEntity?
 
+    @Query("SELECT * FROM vault_files WHERE id = :fileId LIMIT 1")
+    suspend fun findFileById(fileId: String): VaultFileEntity?
+
     @Query("UPDATE vault_files SET albumId = :targetAlbumId WHERE id IN (:fileIds)")
     suspend fun moveFilesToAlbum(fileIds: List<String>, targetAlbumId: String)
 
