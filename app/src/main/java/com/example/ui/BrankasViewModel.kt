@@ -61,7 +61,9 @@ data class VaultUiState(
     val allFiles: List<VaultFileEntity> = emptyList(),
     val searchQuery: String = "",
     val selectedCategory: MediaCategory? = null,
-    val importProgress: ImportProgressState? = null
+    val importProgress: ImportProgressState? = null,
+    val vaultScanProgress: ImportProgressState? = null,
+    val vaultScanSummary: String? = null
 )
 
 sealed interface VaultEvent {
@@ -87,6 +89,9 @@ class BrankasViewModel(
 
     @Volatile
     private var suppressNextAutoLock = false
+
+    @Volatile
+    private var vaultScanRunning = false
 
     val uiState: StateFlow<VaultUiState> = combine(
         _localState,
@@ -173,6 +178,7 @@ class BrankasViewModel(
                     pinError = null
                 )
             }
+            startBackgroundVaultScan()
         }
     }
 
@@ -274,6 +280,7 @@ class BrankasViewModel(
                         pinError = null
                     )
                 }
+                startBackgroundVaultScan()
             } else {
                 _localState.update {
                     it.copy(
@@ -441,6 +448,43 @@ class BrankasViewModel(
         repository.decryptToEphemeralCacheFile(file)
 
     fun listExternalEncryptedFiles(folderUri: android.net.Uri) = repository.listExternalEncryptedFiles(folderUri)
+
+    fun startBackgroundVaultScan() {
+        val folderUri = uiState.value.securityPrefs.externalVaultFolderUri
+        if (folderUri.isNullOrBlank() || vaultScanRunning) return
+        vaultScanRunning = true
+        viewModelScope.launch {
+            try {
+                val names = runCatching {
+                    repository.listExternalEncryptedFiles(Uri.parse(folderUri))
+                        .mapNotNull { it.name }
+                        .filter { it.endsWith(".vault", ignoreCase = true) && !it.endsWith(".thumb.vault", ignoreCase = true) }
+                        .distinct()
+                        .sorted()
+                }.getOrElse { emptyList() }
+                var restored = 0
+                var skippedOrFailed = 0
+                names.forEachIndexed { index, name ->
+                    _localState.update { state ->
+                        state.copy(vaultScanProgress = ImportProgressState(index, names.size, "Memindai Vault: $name"))
+                    }
+                    runCatching {
+                        repository.restoreExternalEncryptedFile(Uri.parse(folderUri), name)
+                    }.onSuccess { restored++ }.onFailure { skippedOrFailed++ }
+                }
+                _localState.update { state ->
+                    state.copy(
+                        vaultScanProgress = null,
+                        vaultScanSummary = "Scan selesai: $restored file dipulihkan/tersedia, $skippedOrFailed file dilewati atau gagal."
+                    )
+                }
+                if (names.isNotEmpty()) _events.tryEmit(VaultEvent.ShowMessage("Background scan selesai: $restored file berhasil dipulihkan, $skippedOrFailed dilewati/gagal"))
+            } finally {
+                vaultScanRunning = false
+                _localState.update { it.copy(vaultScanProgress = null) }
+            }
+        }
+    }
 
     fun scanExternalVaultFolder(folderUri: String, onResult: (List<String>) -> Unit) {
         viewModelScope.launch {
