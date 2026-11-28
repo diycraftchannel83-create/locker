@@ -151,6 +151,10 @@ class VaultRepository(
         ensureDefaultAlbums()
         val targetAlbum = dao.getRecoveryTargetAlbum()
             ?: throw IllegalStateException("Album tujuan pemulihan tidak tersedia")
+        // Mirrored backups use the original vault file ID as their filename stem.
+        val backupId = backupName.removeSuffix(".vault")
+        val existingById = dao.findFileById(backupId)
+        if (existingById != null) return existingById
         val recovered = storageManager.recoverExternalEncryptedFile(folderUri, backupName, targetAlbum.id)
         val existing = dao.findFileByOriginalName(recovered.originalName)
         if (existing != null) {
